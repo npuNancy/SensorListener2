@@ -203,9 +203,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     String file1 = saveCSV(sensorDataFilename, linearAccelerationData, "linearAcceleration");
                     String file2 = saveCSV(sensorDataFilename, gyroscopeSensorData, "gyroscope");
                     String file3 = saveCSV(sensorDataFilename, accelerometerSensorData, "accelerometer");
-                    logInfo = "线性加速度器信号写入完成：" + file1 + "\n";
-                    logInfo += "陀螺仪信号写入完成：" + file2 + "\n";
-                    logInfo += "加速度器信号写入完成：" + file3 + "\n";
+                    logInfo = "线性加速度器信号：" + file1 + "\n";
+                    logInfo += "陀螺仪信号：" + file2 + "\n";
+                    logInfo += "加速度器信号：" + file3 + "\n";
                     // refreshTextView(logInfo);
                 }
             }
@@ -230,8 +230,12 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             logInfo = "开始播放：" + musicInfo.getTitle() + "\n";
             handler.sendEmptyMessage(0);
 
-            MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
+            /*
+            * 先启动传感器，再开始播放音频
+            * 可以完整的采集到一个音频的所有传感器信号
+            * */
             handler.sendEmptyMessage(2); // 开始采集传感器信号
+            MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
 
             try {
                 // Thread.currentThread().sleep(musicInfo.getDuration()); // 等待一首歌的事件
@@ -251,7 +255,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 Log.e(TAG,e.toString());
             }
 
-            handler.sendEmptyMessage(3); // 结束采集
+            handler.sendEmptyMessage(3); // 结束采集传感器信号
 
             logInfo = "播放结束：" + musicInfo.getTitle() + "\n";
             handler.sendEmptyMessage(0);
@@ -327,6 +331,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         String state = Environment.getExternalStorageState();
         if (!Environment.MEDIA_MOUNTED.equals(state)) {
             Log.e(TAG, "外部存储不可用");
+        }
+        if (text.equals("")){
+            return  "失败";
         }
         // 建立传感器数据保存路径
         File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/SenData/" + sensorType + "/");
