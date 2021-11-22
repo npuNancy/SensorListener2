@@ -14,7 +14,6 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -25,6 +24,7 @@ import android.provider.MediaStore;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -36,8 +36,6 @@ import com.example.sensorlistener2.bean.CheckBean;
 import com.example.sensorlistener2.bean.MusicPlayer;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +45,7 @@ import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener{
-    private String TAG = "Log Info";
+    final private String TAG = "Log Info";
     private CheckBox mCkSelectAll; // 全选按钮
     private Button mBtnStartPlay; // 开始播放并采集按钮
     private ListView listView; // 音频list
@@ -59,6 +57,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private Handler handler;
 
     private List<CheckBean> musicCheckInfoList = new ArrayList<>(); //音乐播放器列表
+    public int musicIndex; // 当前播放的音乐的index
 
     private SensorManager sensorManager;
     private MySensorEventListener sensorEventListener;
@@ -68,10 +67,13 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private String sensorDataFilename; // 传感器信号文件名
 
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); // 保持屏幕常亮
 
         // 初始化View
         mBtnStartPlay = (Button) findViewById(R.id.btn_start_play);
@@ -110,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         myMusicAdapter = new MyAdapter(MainActivity.this, musicCheckInfoList, mCkSelectAll);
         listView.setAdapter(myMusicAdapter);
         mCkSelectAll.setOnCheckedChangeListener(this);
-        myMusicAdapter.notifyDataSetChanged();
+        myMusicAdapter.notifyDataSetChanged(); //调用notifyDataSetChanged刷新列表
         Log.i(TAG,"success: List View");
 
         mBtnStartPlay.setOnClickListener(new View.OnClickListener(){
@@ -118,14 +120,18 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             public void onClick(View v) {
                 mBtnStartPlay.setEnabled(false); // 设置按钮不可点击
                 mBtnStartPlay.setText("不要触碰手机！！");
-                playAllMusics();
+
+                playAllMusics(); /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
+
+                mBtnStartPlay.setEnabled(true); // 设置按钮可点击
+                mBtnStartPlay.setText("开始采集");
             }
 
         });
 
     }
 
-    /* 自动滚动到最后一行 */
+    /* Log 自动滚动到最后一行 */
     void refreshTextView(String text){
         textViewLog.post(new Runnable() {
             @Override
@@ -183,10 +189,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             @Override
             public void handleMessage(Message msg) {
                 if(msg.what == 0){
-                    refreshTextView(logInfo);
-                } else if (msg.what == 1){
-                    mBtnStartPlay.setEnabled(true); // 设置按钮可点击
-                    mBtnStartPlay.setText("开始采集");
+                    refreshTextView(logInfo); // 输出“开始播放” or “播放结束”
+                    listView.smoothScrollToPositionFromTop(musicIndex, 0); // 当前item滑动到页面顶部
+                } else if(msg.what == 1){
                 } else if(msg.what == 2){
                     startSensorListener(); // 开始采集传感器信号
                     Log.i(TAG,"开始采集传感器信号");
@@ -201,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     logInfo = "线性加速度器信号写入完成：" + file1 + "\n";
                     logInfo += "陀螺仪信号写入完成：" + file2 + "\n";
                     logInfo += "加速度器信号写入完成：" + file3 + "\n";
-                    refreshTextView(logInfo);
+                    // refreshTextView(logInfo);
                 }
             }
         };
@@ -209,54 +214,59 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         new Thread(new Runnable() {
             @Override
             public void run() {
+                musicIndex = 0;
                 for (CheckBean musicInfo: musicCheckInfoList){
-                    if (musicInfo.isChecked()){
-
-                        logInfo = "开始播放：" + musicInfo.getTitle() + "\n";
-                        handler.sendEmptyMessage(0);
-
-                        MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
-                        handler.sendEmptyMessage(2); // 开始采集传感器信号
-
-                        try {
-                            // Thread.currentThread().sleep(musicInfo.getDuration()); // 等待一首歌的事件
-                            int duration = musicInfo.getDuration();
-                            while(duration >= 0){
-                                if(musicPlayer.getIsPlaying()){
-                                    Thread.currentThread().sleep(1);
-                                    duration -= 1;
-                                } else {
-                                    duration = -1;
-                                }
-                            }
-
-                        } catch (InterruptedException e) {
-                            logInfo = "Error: InterruptedException\n";
-                            handler.sendEmptyMessage(0);
-                            Log.e(TAG,e.toString());
-                        }
-
-                        handler.sendEmptyMessage(3); // 结束采集
-
-                        logInfo = "播放结束：" + musicInfo.getTitle() + "\n";
-                        handler.sendEmptyMessage(0);
-
-                        sensorDataFilename = musicInfo.getTitle(); // 把传感器信号写入文件
-                        handler.sendEmptyMessage(4); // 把传感器信号写入文件
-
-                        try {
-                            Thread.currentThread().sleep(1000); // 结束后隔1s播放下一首
-                        } catch (InterruptedException e) {
-                            Log.e(TAG,e.toString());
-                        }
-
-                    }
+                    playOneMusic(handler, musicInfo);
+                    musicIndex += 1;
                 }
-                handler.sendEmptyMessage(1); // 设置按钮可点击
             }
         }).start();
     }
 
+    /* 播放一首音乐 */
+    public void playOneMusic(Handler handler, CheckBean musicInfo){
+        if (musicInfo.isChecked()){
+
+            logInfo = "开始播放：" + musicInfo.getTitle() + "\n";
+            handler.sendEmptyMessage(0);
+
+            MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
+            handler.sendEmptyMessage(2); // 开始采集传感器信号
+
+            try {
+                // Thread.currentThread().sleep(musicInfo.getDuration()); // 等待一首歌的事件
+                int duration = musicInfo.getDuration();
+                while(duration >= 0){
+                    if(musicPlayer.getIsPlaying()){
+                        Thread.currentThread().sleep(1);
+                        duration -= 1;
+                    } else {
+                        duration = -1;
+                    }
+                }
+
+            } catch (InterruptedException e) {
+                logInfo = "Error: InterruptedException\n";
+                handler.sendEmptyMessage(0);
+                Log.e(TAG,e.toString());
+            }
+
+            handler.sendEmptyMessage(3); // 结束采集
+
+            logInfo = "播放结束：" + musicInfo.getTitle() + "\n";
+            handler.sendEmptyMessage(0);
+
+            sensorDataFilename = musicInfo.getTitle(); // 获取文件名
+            handler.sendEmptyMessage(4); // 把传感器信号写入文件
+
+            try {
+                Thread.currentThread().sleep(1000); // 结束后隔1s播放下一首
+            } catch (InterruptedException e) {
+                Log.e(TAG,e.toString());
+            }
+
+        }
+    }
 
     /* 开始采集传感器信号 */
     public void startSensorListener() {
