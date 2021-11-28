@@ -226,19 +226,19 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     /* 播放一首音乐 */
     public void playOneMusic(Handler handler, CheckBean musicInfo){
         if (musicInfo.isChecked()){
-
             logInfo = "开始播放：" + musicInfo.getTitle() + "\n";
             handler.sendEmptyMessage(0);
 
-            /*
-            * 先启动传感器，再开始播放音频
-            * 可以完整的采集到一个音频的所有传感器信号
-            * */
-            handler.sendEmptyMessage(2); // 开始采集传感器信号
-            MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
-
             try {
-                // Thread.currentThread().sleep(musicInfo.getDuration()); // 等待一首歌的事件
+                /*
+                 * 先启动传感器，再开始播放音频
+                 * 播放结束后等待100ms，再结束传感器信号的采集
+                 * 可以完整的采集到一个音频的所有传感器信号
+                 * */
+                handler.sendEmptyMessage(2); // 开始采集传感器信号
+                MusicPlayer musicPlayer = new MusicPlayer(musicInfo, textViewLog); // 播放音频
+
+                // 等待一首歌的时间
                 int duration = musicInfo.getDuration();
                 while(duration >= 0){
                     if(musicPlayer.getIsPlaying()){
@@ -249,23 +249,19 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     }
                 }
 
+                Thread.currentThread().sleep(100); // 等待一个震动传递到传感器的时间
+                handler.sendEmptyMessage(3); // 结束采集传感器信号
+
+                sensorDataFilename = musicInfo.getTitle(); // 获取文件名
+                handler.sendEmptyMessage(4); // 把传感器信号写入文件
+
+                logInfo = "播放结束：" + musicInfo.getTitle() + "\n";
+                handler.sendEmptyMessage(0);
+
+                Thread.currentThread().sleep(1000); // 结束后隔1s播放下一首
             } catch (InterruptedException e) {
                 logInfo = "Error: InterruptedException\n";
                 handler.sendEmptyMessage(0);
-                Log.e(TAG,e.toString());
-            }
-
-            handler.sendEmptyMessage(3); // 结束采集传感器信号
-
-            logInfo = "播放结束：" + musicInfo.getTitle() + "\n";
-            handler.sendEmptyMessage(0);
-
-            sensorDataFilename = musicInfo.getTitle(); // 获取文件名
-            handler.sendEmptyMessage(4); // 把传感器信号写入文件
-
-            try {
-                Thread.currentThread().sleep(1000); // 结束后隔1s播放下一首
-            } catch (InterruptedException e) {
                 Log.e(TAG,e.toString());
             }
 
