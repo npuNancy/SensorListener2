@@ -122,9 +122,6 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 mBtnStartPlay.setText("不要触碰手机！！");
 
                 playAllMusics(); /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
-
-                mBtnStartPlay.setEnabled(true); // 设置按钮可点击
-                mBtnStartPlay.setText("开始采集");
             }
 
         });
@@ -184,7 +181,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
     public void playAllMusics(){
-        textViewLog.setText("日志：\n");
+        textViewLog.setText("日志：\n有异常问题先重启APP\n");
         handler = new Handler(Looper.getMainLooper()){
             @Override
             public void handleMessage(Message msg) {
@@ -192,6 +189,8 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     refreshTextView(logInfo); // 输出“开始播放” or “播放结束”
                     listView.smoothScrollToPositionFromTop(musicIndex, 0); // 当前item滑动到页面顶部
                 } else if(msg.what == 1){
+                    mBtnStartPlay.setEnabled(true); // 设置按钮可点击
+                    mBtnStartPlay.setText("开始采集");
                 } else if(msg.what == 2){
                     startSensorListener(); // 开始采集传感器信号
                     Log.i(TAG,"开始采集传感器信号");
@@ -203,10 +202,6 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     String file1 = saveCSV(sensorDataFilename, linearAccelerationData, "linearAcceleration");
                     String file2 = saveCSV(sensorDataFilename, gyroscopeSensorData, "gyroscope");
                     String file3 = saveCSV(sensorDataFilename, accelerometerSensorData, "accelerometer");
-                    logInfo = "线性加速度器信号：" + file1 + "\n";
-                    logInfo += "陀螺仪信号：" + file2 + "\n";
-                    logInfo += "加速度器信号：" + file3 + "\n";
-                    // refreshTextView(logInfo);
                 }
             }
         };
@@ -219,6 +214,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     playOneMusic(handler, musicInfo);
                     musicIndex += 1;
                 }
+                handler.sendEmptyMessage(1); // 设置按钮可点击
             }
         }).start();
     }
