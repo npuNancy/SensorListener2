@@ -181,7 +181,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
     public void playAllMusics(){
-        textViewLog.setText("日志：\n有异常问题先重启APP\n");
+        textViewLog.setText("DeBug版APP==测试duration\n日志：\n有异常问题先重启APP\n");
         handler = new Handler(Looper.getMainLooper()){
             @Override
             public void handleMessage(Message msg) {
@@ -237,6 +237,8 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 // 等待一首歌的时间
                 int duration = musicInfo.getDuration();
                 while(duration >= 0){
+                    logInfo = "duration: " + duration + "\n";
+                    handler.sendEmptyMessage(0);
                     if(musicPlayer.getIsPlaying()){
                         Thread.currentThread().sleep(1);
                         duration -= 1;
