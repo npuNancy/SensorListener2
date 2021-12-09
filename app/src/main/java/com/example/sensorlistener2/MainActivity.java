@@ -36,6 +36,7 @@ import com.example.sensorlistener2.bean.CheckBean;
 import com.example.sensorlistener2.bean.MusicPlayer;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -64,7 +65,10 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private String linearAccelerationData; // 线性加速度传感器数据
     private String gyroscopeSensorData; // 陀螺仪传感器数据
     private String accelerometerSensorData; // 加速度传感器数据
+
+    /* 以【时间】而非【下标】来区分 同个音频采集的来的不同传感器数据文件 */
     private String sensorDataFilename; // 传感器信号文件名
+    private String nowTime; // 用于传感器信号文件名, 防止重名
 
 
 
@@ -121,6 +125,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 mBtnStartPlay.setEnabled(false); // 设置按钮不可点击
                 mBtnStartPlay.setText("不要触碰手机！！");
 
+                nowTime = getStringDate(); // 用于传感器信号文件名, 防止重名
                 playAllMusics(); /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
             }
 
@@ -199,9 +204,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     Log.i(TAG,"传感器信号采集结束");
                 } else if(msg.what == 4){
                     // 把传感器信号写入文件
-                    String file1 = saveCSV(sensorDataFilename, linearAccelerationData, "linearAcceleration");
-                    String file2 = saveCSV(sensorDataFilename, gyroscopeSensorData, "gyroscope");
-                    String file3 = saveCSV(sensorDataFilename, accelerometerSensorData, "accelerometer");
+                    String file1 = saveCSV(sensorDataFilename, linearAccelerationData, nowTime, "linearAcceleration");
+                    String file2 = saveCSV(sensorDataFilename, gyroscopeSensorData, nowTime, "gyroscope");
+                    String file3 = saveCSV(sensorDataFilename, accelerometerSensorData, nowTime, "accelerometer");
                 }
             }
         };
@@ -315,7 +320,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
 
     /* 保存文件并返回文件名 */
-    public String saveCSV(String filename, String text, String sensorType){
+    public String saveCSV(String filename, String text,String current, String sensorType){
         /*
         * sensorType: 传感器类型 linearAcceleration gyroscope accelerometer
         * */
@@ -331,17 +336,25 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/SenData/" + sensorType + "/");
         if(!dir.exists()){ dir.mkdirs(); }
         if(dir.exists()){
-            int index = getFileIndex(dir, filename); // 获取同名文件的index
-            newFilename = String.format("%s_%d.csv", filename, index);
+            /* 以【时间】而非【下标】来区分 同个音频采集的来的不同传感器数据文件 */
+            newFilename = String.format("%s_%s.csv", filename, current);
             File file = new File(dir.getAbsolutePath(), newFilename);
-            try {
-                file.createNewFile(); //创建新文件
-                FileOutputStream  outStream = new FileOutputStream(file); // 获取文件的输出流对象
-                outStream.write(text.getBytes(StandardCharsets.UTF_8)); // 获取字符串对象的byte数组并写入文件流
-                outStream.close(); // 最后关闭文件输出流
-                Log.i(TAG, "========== " +file.toString()+" 保存成功==========");
-            } catch (IOException e) {
-                Log.e(TAG, e.toString());
+            Log.i(TAG, "========== file 是否存在： " + file.exists() + " ==========");
+            if(!file.exists()) {
+                try {
+                    file.createNewFile(); //创建新文件
+                    FileOutputStream outStream = new FileOutputStream(file); // 获取文件的输出流对象
+                    outStream.write(text.getBytes(StandardCharsets.UTF_8)); // 获取字符串对象的byte数组并写入文件流
+                    outStream.close(); // 最后关闭文件输出流
+                    Log.i(TAG, "========== " + file.toString() + " 保存成功==========");
+                } catch (FileNotFoundException e){
+                    Log.e(TAG, "可能是没删除干净");
+                    Log.e(TAG, e.toString());
+                } catch (IOException e) {
+                    Log.e(TAG, e.toString());
+                }
+            }else {
+
             }
         }
         return newFilename;
@@ -368,6 +381,14 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             }
         }
         return index;
+    }
+
+    /* 获取现在时间 格式为 yyyyMMddHHmmss */
+    public static String getStringDate() {
+        Date currentTime = new Date();
+        @SuppressLint("SimpleDateFormat") SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        String dateString = formatter.format(currentTime);
+        return dateString;
     }
 
 }
