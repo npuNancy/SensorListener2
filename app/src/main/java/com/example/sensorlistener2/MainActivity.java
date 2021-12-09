@@ -58,7 +58,9 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private Handler handler;
 
     private List<CheckBean> musicCheckInfoList = new ArrayList<>(); //音乐播放器列表
-    public int musicIndex; // 当前播放的音乐的index
+    public int musicIndex; // 当前播放的音乐的在所有音频文件里的index
+    public int checkedMusicIndex; // 当前播放的音乐的在选中音频文件里的index
+    public int checkedMusicNumber; // 选中的音频的数量
 
     private SensorManager sensorManager;
     private MySensorEventListener sensorEventListener;
@@ -124,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             public void onClick(View v) {
                 mBtnStartPlay.setEnabled(false); // 设置按钮不可点击
                 mBtnStartPlay.setText("不要触碰手机！！");
-
+                checkedMusicNumber = getCheckedMusicNumber(); // 选中音频文件的数量
                 nowTime = getStringDate(); // 用于传感器信号文件名, 防止重名
                 playAllMusics(); /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
             }
@@ -183,6 +185,16 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         });
     }
 
+    /* 返回选中音频文件的数量 */
+    public int getCheckedMusicNumber(){
+        int i = 0;
+        for (CheckBean musicInfo: musicCheckInfoList){
+            if (musicInfo.isChecked()){
+                i += 1;
+            }
+        }
+        return i;
+    }
 
     /* 按顺序播放选中音乐，并采集传感器信号写入文件 */
     public void playAllMusics(){
@@ -215,6 +227,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             @Override
             public void run() {
                 musicIndex = 0;
+                checkedMusicIndex = 0;
                 for (CheckBean musicInfo: musicCheckInfoList){
                     playOneMusic(handler, musicInfo);
                     musicIndex += 1;
@@ -227,7 +240,8 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     /* 播放一首音乐 */
     public void playOneMusic(Handler handler, CheckBean musicInfo){
         if (musicInfo.isChecked()){
-            logInfo = "开始播放：" + musicInfo.getTitle() + "\n";
+            checkedMusicIndex += 1;
+            logInfo = "开始播放：第 " + checkedMusicIndex + " / " + checkedMusicNumber  + " 个: " + musicInfo.getTitle() + "\n";
             handler.sendEmptyMessage(0);
 
             try {
